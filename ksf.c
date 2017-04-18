@@ -14,12 +14,12 @@ void print_input_error()
 
 int main(int argc, char* argv[])
 {
+	// Check to see if enough parameters were passed to main()
 	if(argc != 5)
 	{
 		print_input_error();
 		return -1;
 	}
-
 
 	// A user-inputted value specifying the total number of engines
 	int engineNum = atoi(argv[1]);
@@ -33,6 +33,7 @@ int main(int argc, char* argv[])
 	// A user-inputted value specifying the total number of Kerbals
 	int kerbalNum = atoi(argv[4]);
 
+	// Check to see if acceptable values were passed to main()
 	if( !((engineNum > 0) && (engineNum < 255) 
 		&& (fuselageNum > 0) && (fuselageNum < 255)
 		&& (fuelTankNum > 0) && (fuelTankNum < 255)
