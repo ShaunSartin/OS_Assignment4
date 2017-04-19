@@ -4,7 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <semaphore.h>
-
+#include <errno.h>
 
 // A user-inputted value specifying the total number of engines
 int engineNum;
@@ -18,6 +18,12 @@ int fuelTankNum;
 // A user-inputted value specifying the total number of Kerbals
 int kerbalNum;
 
+// NOTE: ADD DESCRIPTION
+pthread_mutex_t decrement;
+pthread_mutex_t increment;
+
+pthread_cond_t c1;
+pthread_condattr_t ca1;
 
 /* 
 Function Purpose: 
@@ -47,24 +53,36 @@ void* begin_sequence(void* kerbalID)
 		
 		//Mutex or Semaphore needed here?
 		//What if another thread steals the last available resource after another thread confirms if-statement?
+
+		pthread_mutex_lock(&decrement);
 		if((engineNum > 0) && (fuselageNum > 0) && (fuelTankNum > 0))
 		{
+			printf("Kerbal %ld: Before Assembly (%d Engine(s), %d Fuselage(s), and %d Fuel Tank(s) remaining)\n",
+				 (long) kerbalID, engineNum, fuselageNum, fuelTankNum);
+			fflush(stdout);
 			engineNum -= 1;
 			fuselageNum -= 1;
 			fuelTankNum -= 1;
-			printf("Kerbal %ld: Assembled Engine (%d Engines, %d Fuselages, and %d Fuel Tanks remaining)\n",
+			printf("Kerbal %ld: After Assembly (%d Engine(s), %d Fuselage(s), and %d Fuel Tank(s) remaining)\n",
 				 (long) kerbalID, engineNum, fuselageNum, fuelTankNum);
-			
-			sleep(5);	//NOTE: ASSEMBLY TAKES 15 SECONDS	
-			
-			engineNum += 1;
-			fuselageNum += 1;
-			fuelTankNum += 1;
-			printf("Kerbal %ld: Disassembled Engine (%d Engines, %d Fuselages, and %d Fuel Tanks remaining)\n",
-				 (long) kerbalID, engineNum, fuselageNum, fuelTankNum);
-			
+			fflush(stdout);		
 		}
+		sleep(5);	//NOTE: ASSEMBLY TAKES 15 SECONDS	
+		pthread_mutex_unlock(&decrement);
+
 		sleep(5);
+
+		pthread_mutex_lock(&increment);
+		printf("Kerbal %ld: Before Disassembly (%d Engine(s), %d Fuselage(s), and %d Fuel Tank(s) remaining)\n",
+			 (long) kerbalID, engineNum, fuselageNum, fuelTankNum);
+		fflush(stdout);
+		engineNum += 1;
+		fuselageNum += 1;
+		fuelTankNum += 1;	
+		printf("Kerbal %ld: After Disassembly (%d Engine(s), %d Fuselage(s), and %d Fuel Tank(s) remaining)\n",
+			 (long) kerbalID, engineNum, fuselageNum, fuelTankNum);
+		fflush(stdout);
+		pthread_mutex_unlock(&increment);
 	}
 }
 
@@ -95,6 +113,9 @@ int main(int argc, char* argv[])
 		print_input_error();
 		return -1;
 	}
+
+	//NOTE: ADD DESCRIPTION
+	pthread_cond_init(&c1, &ca1);
 
 	// An array will be used to hold all of the kerbals (pthreads)
 	pthread_t kerbalArray [kerbalNum];
