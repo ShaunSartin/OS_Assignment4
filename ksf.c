@@ -23,6 +23,7 @@ enum state {ENTERING_FOR_ASSEMBLY, ASSEMBLING, LAUNCHPAD, FLIGHT, ENTERING_FOR_D
 
 // NOTE: ADD DESCRIPTION
 pthread_mutex_t partModification;
+
 pthread_mutex_t launch;
 
 pthread_cond_t af;
@@ -74,7 +75,7 @@ void* begin_sequence(void* kerbalID)
 				//printf("Kerbal %ld: is attempting to post door semaphore.\n", (long) kerbalID);
 			        sem_post(&door);
 				//printf("Kerbal %ld: has posted the door semaphore.\n" (long) kerbalID);
-				//printf("Kerbal %ld: is waiting to enter the assembly building.\n", (long) kerbalID);
+        printf("Kerbal %ld: is waiting to enter the assembly building.\n", (long) kerbalID);
                                 sleep(1);
 			}
 		}
@@ -136,6 +137,7 @@ void* begin_sequence(void* kerbalID)
 			sleep(1);
 			printf("Kerbal %ld: Liftoff\n", (long) kerbalID);
 			
+
 			pthread_mutex_unlock(&launch);
 			//printf("Kerbal %ld: is unlocking launchpad mutex\n", (long) kerbalID);
 			sem_post(&launchpad);
@@ -169,6 +171,7 @@ void* begin_sequence(void* kerbalID)
 			fuelTankNum += 1;
 			printf("Kerbal %ld: has finished disassembling a rocket. (%d Engine(s) %d Fuselage(s) %d Fuel Tank(s) remaining)\n", 
 				(long int) kerbalID, engineNum, fuselageNum, fuelTankNum);
+
 			//printf("Kerbal %ld: released disassemble mutex\n", (long) kerbalID);
 			pthread_mutex_unlock(&partModification);
 			kerbalState = ENTERING_FOR_ASSEMBLY;
