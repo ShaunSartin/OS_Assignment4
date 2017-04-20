@@ -24,6 +24,7 @@ enum state {ENTERING_FOR_ASSEMBLY, ASSEMBLING, LAUNCHPAD, FLIGHT, ENTERING_FOR_D
 // NOTE: ADD DESCRIPTION
 pthread_mutex_t partModification;
 pthread_mutex_t launch;
+pthread_mutex_t entrance;
 
 pthread_cond_t af;
 pthread_condattr_t af_attr;
@@ -59,22 +60,29 @@ void* begin_sequence(void* kerbalID)
 		if(kerbalState == ENTERING_FOR_ASSEMBLY)
 		{
 			//printf("Kerbal %ld: trying door semaphore\n", (long) kerbalID);
-			sem_wait(&door);
+			if(sem_trywait(&door) != 0)
+			{
+				printf("Kerbal %ld: is waiting to enter the assembly building.\n", (long) kerbalID); 
+			}
+
+			pthread_mutex_lock(&entrance);
 			//printf("Kerbal %ld: got door semaphore\n", (long) kerbalID);
 			if((engineNum > 0) && (fuselageNum > 0) && (fuelTankNum > 0))
 			{
 				printf("Kerbal %ld: has entered the building.\n", (long) kerbalID);
+				pthread_mutex_unlock(&entrance);
 				kerbalState = ASSEMBLING;
 			}
 			else
 			{
+				pthread_mutex_unlock(&entrance);
 				// Need this sem_post() to cover the case where no parts remain,
 				// 	causing this else-statement to execute, thus not causing the sem_post() in ASSEMBLING
 				//	to never execute.
 				//printf("Kerbal %ld: is attempting to post door semaphore.\n", (long) kerbalID);
 			        sem_post(&door);
 				//printf("Kerbal %ld: has posted the door semaphore.\n" (long) kerbalID);
-				//printf("Kerbal %ld: is waiting to enter the assembly building.\n", (long) kerbalID);
+				// ^ SPAM PROBLEM
                                 sleep(1);
 			}
 		}
