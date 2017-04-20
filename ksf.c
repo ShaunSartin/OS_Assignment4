@@ -19,10 +19,11 @@ int fuelTankNum;
 int kerbalNum;
 
 // NOTE: ADD DESCRIPTION
-enum state {ENTERING_FOR_ASSEMBLY, ASSEMBLING, DISASSEMBLING};
+enum state {ENTERING_FOR_ASSEMBLY, ASSEMBLING, LAUNCHPAD, FLIGHT, ENTERING_FOR_DISASSEMBLY, DISASSEMBLING};
 
 // NOTE: ADD DESCRIPTION
-pthread_mutex_t entrance;
+pthread_mutex_t partModification;
+pthread_mutex_t launchpad;
 
 pthread_cond_t af;
 pthread_condattr_t af_attr;
@@ -54,15 +55,11 @@ void* begin_sequence(void* kerbalID)
 	enum state kerbalState = ENTERING_FOR_ASSEMBLY;
 	while(1)
 	{
-		//ENTERING BUILDING
 		if(kerbalState == ENTERING_FOR_ASSEMBLY)
 		{
-			printf("Kerbal %ld is trying entering assembly mutex\n", (long) kerbalID);
-			//pthread_mutex_lock(&entrance);
-			printf("Kerbal %ld grabbed entering assembly mutex\n", (long) kerbalID);
-			printf("Kerbal %ld trying semaphore\n", (long) kerbalID);
+			//printf("Kerbal %ld: trying door semaphore\n", (long) kerbalID);
 			sem_wait(&door);
-			printf("Kerbal %ld got semaphore\n", (long) kerbalID);
+			//printf("Kerbal %ld: got door semaphore\n", (long) kerbalID);
 			if((engineNum > 0) && (fuselageNum > 0) && (fuelTankNum > 0))
 			{
 				printf("Kerbal %ld: has entered the building.\n", (long) kerbalID);
@@ -70,48 +67,100 @@ void* begin_sequence(void* kerbalID)
 			}
 			else
 			{
+				// Need this sem_post() to cover the case where no parts remain,
+				// 	causing this else-statement to execute, thus not causing the sem_post() in ASSEMBLING
+				//	to never execute.
+				//printf("Kerbal %ld: is attempting to post door semaphore.\n", (long) kerbalID);
 			        sem_post(&door);
+				//printf("Kerbal %ld: has posted the door semaphore.\n" (long) kerbalID);
 				printf("Kerbal %ld: is waiting to enter the assembly building.\n", (long) kerbalID);
                                 sleep(1);
 			}
-			printf("Kerbal %ld is unlocking entering assembly mutex\n", (long) kerbalID);
-			//pthread_mutex_unlock(&entrance);
-			printf("Kerbal %ld unlocked entering assembly mutex\n", (long) kerbalID);
 		}
 
 		else if (kerbalState == ASSEMBLING)
 		{
-			printf("Kerbal %ld is tryiung assembly mutex\n", (long) kerbalID);
-			pthread_mutex_lock(&entrance);
-			printf("Kerbal %ld grabbed assembly mutex\n", (long) kerbalID);
+			//printf("Kerbal %ld: is trying assembly mutex\n", (long) kerbalID);
+			pthread_mutex_lock(&partModification);
+			//printf("Kerbal %ld: grabbed assembly mutex\n", (long) kerbalID);
 			engineNum -= 1;
 			fuselageNum -= 1;
 			fuelTankNum -= 1;
-			printf("Kerbal %ld posting semaphore\n", (long) kerbalID);
+			//printf("Kerbal %ld: posting door semaphore\n", (long) kerbalID);
 			sem_post(&door);
+			//printf("Kerbal %ld: has posted the door semaphore.\n", (long) kerbalID);
 			printf("Kerbal %ld: has finished assembling a rocket. (%d Engine(s) %d Fuselage(s) %d Fuel Tank(s) remaining)\n", 
 				(long int) kerbalID, engineNum, fuselageNum, fuelTankNum);
-			printf("Kerbal %ld is unlocking assembly mutex\n", (long) kerbalID);
-			pthread_mutex_unlock(&entrance);
-			printf("Kerbal %ld unlocked assembly mutex\n", (long) kerbalID);
-			printf("Changing Kerbal %ld's state to DISASSEMBLING\n", (long) kerbalID);
-			kerbalState = DISASSEMBLING;
+			//printf("Kerbal %ld: is unlocking assembly mutex\n", (long) kerbalID);
+			pthread_mutex_unlock(&partModification);
+			//printf("Kerbal %ld: unlocked assembly mutex\n", (long) kerbalID);
+			printf("Changing Kerbal %ld's state to LAUNCHPAD\n", (long) kerbalID);
+			kerbalState = LAUNCHPAD;
 			sleep(5);
-			printf("Kerbal %ld woke up.\n", (long) kerbalID);	
+			printf("Kerbal %ld: woke up.\n", (long) kerbalID);	
 		}
-		
+
+		else if (kerbalState == LAUNCHPAD)
+		{
+			
+			//printf("Kerbal %ld: is trying launchpad mutex\n", (long) kerbalID);
+			pthread_mutex_lock(&launchpad);
+			//printf("Kerbal %ld: grabbed launchpad mutex\n", (long) kerbalID);
+
+
+			printf("Kerbal %ld: Launching in ... 10\n", (long) kerbalID);
+			sleep(1);
+			printf("Kerbal %ld: Launching in ... 9\n", (long) kerbalID);
+			sleep(1);
+			printf("Kerbal %ld: Launching in ... 8\n", (long) kerbalID);
+			sleep(1);
+			printf("Kerbal %ld: Launching in ... 7\n", (long) kerbalID);
+			sleep(1);
+			printf("Kerbal %ld: Launching in ... 6\n", (long) kerbalID);
+			sleep(1);
+			printf("Kerbal %ld: Launching in ... 5\n", (long) kerbalID);
+			sleep(1);
+			printf("Kerbal %ld: Launching in ... 4\n", (long) kerbalID);
+			sleep(1);
+			printf("Kerbal %ld: Launching in ... 3\n", (long) kerbalID);
+			sleep(1);
+			printf("Kerbal %ld: Launching in ... 2\n", (long) kerbalID);
+			sleep(1);
+			printf("Kerbal %ld: Launching in ... 1\n", (long) kerbalID);
+			sleep(1);
+			printf("Kerbal %ld: Liftoff\n", (long) kerbalID);
+			
+			//printf("Kerbal %ld: is unlocking launchpad mutex\n", (long) kerbalID);
+			pthread_mutex_unlock(&launchpad);
+			//printf("Kerbal %ld: unlocked launchpad mutex\n", (long) kerbalID);
+			kerbalState = FLIGHT;
+			printf("Changed Kerbal %ld's state to ENTERING_FOR_DISASSEMBLY\n", (long) kerbalID);
+		}
+
+
+		else if (kerbalState == FLIGHT)
+		{
+			kerbalState = ENTERING_FOR_DISASSEMBLY;
+		}
+
+	
+		else if (kerbalState == ENTERING_FOR_DISASSEMBLY)
+		{
+			kerbalState = DISASSEMBLING;
+		}
+	
 		else if(kerbalState == DISASSEMBLING)
 		{
-			printf("Kerbal %ld is now beginning the disassembling process\n", (long) kerbalID);
-			pthread_mutex_lock(&entrance);	
-			printf("Kerbal %ld grabbed disassemble mutex\n", (long) kerbalID);
+			printf("Kerbal %ld: is now trying the disassemble mutex\n", (long) kerbalID);
+			pthread_mutex_lock(&partModification);	
+			printf("Kerbal %ld: grabbed disassemble mutex\n", (long) kerbalID);
 			engineNum += 1;
 			fuselageNum += 1;
 			fuelTankNum += 1;
 			printf("Kerbal %ld: has finished disassembling a rocket. (%d Engine(s) %d Fuselage(s) %d Fuel Tank(s) remaining)\n", 
 				(long int) kerbalID, engineNum, fuselageNum, fuelTankNum);
-			printf("Kerbal %ld released grabbed disassemble mutex\n", (long) kerbalID);
-			pthread_mutex_unlock(&entrance);
+			printf("Kerbal %ld: released grabbed disassemble mutex\n", (long) kerbalID);
+			pthread_mutex_unlock(&partModification);
 			kerbalState = ENTERING_FOR_ASSEMBLY;
 			sleep(1);
 		} 
