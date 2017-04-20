@@ -19,11 +19,15 @@ int fuelTankNum;
 int kerbalNum;
 
 // NOTE: ADD DESCRIPTION
-pthread_mutex_t decrement;
-pthread_mutex_t increment;
+enum state {ENTERING_FOR_ASSEMBLY, ASSEMBLING, DISASSEMBLING};
 
-pthread_cond_t c1;
-pthread_condattr_t ca1;
+// NOTE: ADD DESCRIPTION
+pthread_mutex_t entrance;
+
+pthread_cond_t af;
+pthread_condattr_t af_attr;
+
+sem_t door;
 
 /* 
 Function Purpose: 
@@ -47,42 +51,71 @@ NOTE:
 */
 void* begin_sequence(void* kerbalID)
 {
+	enum state kerbalState = ENTERING_FOR_ASSEMBLY;
 	while(1)
 	{
-		printf("Kerbal %ld: Enters into the assembly facility\n", (long) kerbalID);
-		
-		//Mutex or Semaphore needed here?
-		//What if another thread steals the last available resource after another thread confirms if-statement?
-
-		pthread_mutex_lock(&decrement);
-		if((engineNum > 0) && (fuselageNum > 0) && (fuelTankNum > 0))
+		//ENTERING BUILDING
+		if(kerbalState == ENTERING_FOR_ASSEMBLY)
 		{
-			printf("Kerbal %ld: Before Assembly (%d Engine(s), %d Fuselage(s), and %d Fuel Tank(s) remaining)\n",
-				 (long) kerbalID, engineNum, fuselageNum, fuelTankNum);
-			fflush(stdout);
+			printf("Kerbal %ld is trying entering assembly mutex\n", (long) kerbalID);
+			//pthread_mutex_lock(&entrance);
+			printf("Kerbal %ld grabbed entering assembly mutex\n", (long) kerbalID);
+			printf("Kerbal %ld trying semaphore\n", (long) kerbalID);
+			sem_wait(&door);
+			printf("Kerbal %ld got semaphore\n", (long) kerbalID);
+			if((engineNum > 0) && (fuselageNum > 0) && (fuelTankNum > 0))
+			{
+				printf("Kerbal %ld: has entered the building.\n", (long) kerbalID);
+				kerbalState = ASSEMBLING;
+			}
+			else
+			{
+			        sem_post(&door);
+				printf("Kerbal %ld: is waiting to enter the assembly building.\n", (long) kerbalID);
+                                sleep(1);
+			}
+			printf("Kerbal %ld is unlocking entering assembly mutex\n", (long) kerbalID);
+			//pthread_mutex_unlock(&entrance);
+			printf("Kerbal %ld unlocked entering assembly mutex\n", (long) kerbalID);
+		}
+
+		else if (kerbalState == ASSEMBLING)
+		{
+			printf("Kerbal %ld is tryiung assembly mutex\n", (long) kerbalID);
+			pthread_mutex_lock(&entrance);
+			printf("Kerbal %ld grabbed assembly mutex\n", (long) kerbalID);
 			engineNum -= 1;
 			fuselageNum -= 1;
 			fuelTankNum -= 1;
-			printf("Kerbal %ld: After Assembly (%d Engine(s), %d Fuselage(s), and %d Fuel Tank(s) remaining)\n",
-				 (long) kerbalID, engineNum, fuselageNum, fuelTankNum);
-			fflush(stdout);		
+			printf("Kerbal %ld posting semaphore\n", (long) kerbalID);
+			sem_post(&door);
+			printf("Kerbal %ld: has finished assembling a rocket. (%d Engine(s) %d Fuselage(s) %d Fuel Tank(s) remaining)\n", 
+				(long int) kerbalID, engineNum, fuselageNum, fuelTankNum);
+			printf("Kerbal %ld is unlocking assembly mutex\n", (long) kerbalID);
+			pthread_mutex_unlock(&entrance);
+			printf("Kerbal %ld unlocked assembly mutex\n", (long) kerbalID);
+			printf("Changing Kerbal %ld's state to DISASSEMBLING\n", (long) kerbalID);
+			kerbalState = DISASSEMBLING;
+			sleep(5);
+			printf("Kerbal %ld woke up.\n", (long) kerbalID);	
 		}
-		sleep(5);	//NOTE: ASSEMBLY TAKES 15 SECONDS	
-		pthread_mutex_unlock(&decrement);
-
-		sleep(5);
-
-		pthread_mutex_lock(&increment);
-		printf("Kerbal %ld: Before Disassembly (%d Engine(s), %d Fuselage(s), and %d Fuel Tank(s) remaining)\n",
-			 (long) kerbalID, engineNum, fuselageNum, fuelTankNum);
-		fflush(stdout);
-		engineNum += 1;
-		fuselageNum += 1;
-		fuelTankNum += 1;	
-		printf("Kerbal %ld: After Disassembly (%d Engine(s), %d Fuselage(s), and %d Fuel Tank(s) remaining)\n",
-			 (long) kerbalID, engineNum, fuselageNum, fuelTankNum);
-		fflush(stdout);
-		pthread_mutex_unlock(&increment);
+		
+		else if(kerbalState == DISASSEMBLING)
+		{
+			printf("Kerbal %ld is now beginning the disassembling process\n", (long) kerbalID);
+			pthread_mutex_lock(&entrance);	
+			printf("Kerbal %ld grabbed disassemble mutex\n", (long) kerbalID);
+			engineNum += 1;
+			fuselageNum += 1;
+			fuelTankNum += 1;
+			printf("Kerbal %ld: has finished disassembling a rocket. (%d Engine(s) %d Fuselage(s) %d Fuel Tank(s) remaining)\n", 
+				(long int) kerbalID, engineNum, fuselageNum, fuelTankNum);
+			printf("Kerbal %ld released grabbed disassemble mutex\n", (long) kerbalID);
+			pthread_mutex_unlock(&entrance);
+			kerbalState = ENTERING_FOR_ASSEMBLY;
+			sleep(1);
+		} 
+		
 	}
 }
 
@@ -115,10 +148,13 @@ int main(int argc, char* argv[])
 	}
 
 	//NOTE: ADD DESCRIPTION
-	pthread_cond_init(&c1, &ca1);
+	pthread_cond_init(&af, &af_attr);
 
 	// An array will be used to hold all of the kerbals (pthreads)
 	pthread_t kerbalArray [kerbalNum];
+
+	// ADD DESCRIPTION
+	sem_init(&door, 0, 1);
 
 	for (i = 0; i < kerbalNum; i++)
 	{	
