@@ -60,9 +60,9 @@ void* begin_sequence(void* kerbalID)
 		if(kerbalState == ENTERING_FOR_ASSEMBLY)
 		{
 			//printf("Kerbal %ld: trying door semaphore\n", (long) kerbalID);
-			if(sem_trywait(&door) != 0)
+			while(sem_trywait(&door) != 0)
 			{
-				printf("Kerbal %ld: is waiting to enter the assembly building.\n", (long) kerbalID); 
+				//printf("Kerbal %ld: is waiting to enter the assembly building.\n", (long) kerbalID); 
 			}
 
 			pthread_mutex_lock(&entrance);
@@ -113,9 +113,9 @@ void* begin_sequence(void* kerbalID)
 		{
 			
 			//printf("Kerbal %ld: is trying launchpad mutex\n", (long) kerbalID);
-			if(sem_trywait(&launchpad) != 0)
+			while(sem_trywait(&launchpad) != 0)
 			{
-				printf("Kerbal %ld: Waiting at the launchpad\n", (long) kerbalID);
+				//printf("Kerbal %ld: Waiting at the launchpad\n", (long) kerbalID);
 			}
 		
 			pthread_mutex_lock(&launch);
